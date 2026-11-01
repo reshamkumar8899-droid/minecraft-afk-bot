@@ -12,6 +12,7 @@ let reconnectDelay = config.RECONNECT_DELAY_MS;
 let reconnectAttempts = 0;
 let loginSent = false;
 let featuresStarted = false;
+let isLoggedIn = false;
 
 function log(msg) { console.log(`[bot] ${new Date().toISOString()} ${msg}`); }
 
@@ -32,18 +33,20 @@ function createBot() {
     reconnectAttempts = 0;
     loginSent = false;
     featuresStarted = false;
+    isLoggedIn = false;
 
-    // Load auto-eat plugin (optional - degrades gracefully)
+    // Load auto-eat plugin
     try {
       const autoEat = require('mineflayer-auto-eat');
       bot.loadPlugin(autoEat);
       if (bot.autoEat) {
-        bot.autoEat.options = {
+        bot.autoEat.setOpts({
           priority: 'food',
-          maxEattable: config.EAT_BELOW_FOOD,
-          eatSprint: true,
-          bannedFood: ['rotten flesh', 'spider eye', 'spider_eyes'],
-        };
+          minHunger: config.EAT_BELOW_FOOD,
+          offhand: true,
+          bannedFood: ['rotten flesh', 'spider eye'],
+        });
+        bot.autoEat.enableAuto();
       }
       log('auto-eat enabled');
     } catch (e) {
@@ -57,29 +60,8 @@ function createBot() {
     }, config.LOGIN_DELAY_MS);
 
     // Watch system messages for login/register prompts
-    bot.on('chat', (username, message, onGround, position) => {
-      if (username === null) {
-        const lower = message.toLowerCase();
-        if (lower.includes('log in') || lower.includes('login')) {
-          if (!loginSent) sendLogin();
-        }
-        if (lower.includes('register')) {
-          if (!loginSent) sendLogin();
-        }
-        if (lower.includes('successfully logged in') || lower.includes('login successful') || lower.includes('you are now logged in')) {
-          loginSent = true;
-          startFeatures();
-        }
-      }
-    });
-
-    // Auto-eat logging
-    bot.on('message', (message) => {
-      const text = message.toString();
-      if (text.toLowerCase().includes('ate') || text.toLowerCase().includes('eating')) {
-        log(`ate food: ${text}`);
-      }
-    });
+    bot.on('chat', onChat);
+    bot.on('message', onMessage);
   });
 
   bot.on('end', (reason) => {
@@ -100,11 +82,35 @@ function createBot() {
     scheduleReconnect();
   });
 
+  function onChat(username, message, onGround, position) {
+    if (username === null) {
+      const lower = message.toLowerCase();
+      if (lower.includes('log in') || lower.includes('login')) {
+        if (!loginSent) sendLogin();
+      }
+      if (lower.includes('register')) {
+        if (!loginSent) sendRegister();
+      }
+      if (lower.includes('successfully logged in') || lower.includes('login successful') || lower.includes('you are now logged in')) {
+        loginSent = true;
+        isLoggedIn = true;
+        startFeatures();
+      }
+    }
+  }
+
+  function onMessage(message) {
+    const text = message.toString();
+    if (text.toLowerCase().includes('ate') || text.toLowerCase().includes('eating')) {
+      log(`ate food: ${text}`);
+    }
+  }
+
   function startFeatures() {
     if (featuresStarted) return;
     featuresStarted = true;
     if (config.ANTI_AFK_ENABLED) antiAfk.start(bot);
-    tpa.start(bot);
+    tpa.start(bot, isLoggedIn);
     log('features started');
   }
 
@@ -118,12 +124,31 @@ function createBot() {
     }, 3000);
   }
 
+  function sendRegister() {
+    if (loginSent) return;
+    loginSent = true;
+    bot.chat(`/register ${config.PASSWORD} ${config.PASSWORD}`);
+    log('sent /register');
+    setTimeout(() => {
+      if (!featuresStarted) startFeatures();
+    }, 3000);
+  }
+
   function cleanup() {
-    try { antiAfk.stop(); } catch (e) {}
-    try { tpa.stop(); } catch (e) {}
-    try { bot.quit(); } catch (e) {}
+    try { antiAfk.stop(); } catch (e) { log(`antiAfk stop error: ${e.message}`); }
+    try { tpa.stop(); } catch (e) { log(`tpa stop error: ${e.message}`); }
+    if (bot) {
+      try { bot.removeListener('chat', onChat); } catch (e) {}
+      try { bot.removeListener('message', onMessage); } catch (e) {}
+      try { bot.quit(); } catch (e) {}
+    }
     featuresStarted = false;
     loginSent = false;
+    isLoggedIn = false;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
   }
 
   function scheduleReconnect() {
@@ -138,4 +163,4 @@ function createBot() {
   }
 }
 
-module.exports = { createBot };
+module.exports = { createBot, getBot: () => bot, isLoggedIn: () => isLoggedIn };
