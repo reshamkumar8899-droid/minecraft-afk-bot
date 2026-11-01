@@ -14,7 +14,6 @@ let acceptCountThisHour = 0;
 let acceptResetTimer = null;
 let lastAcceptTime = 0;
 let patterns = null;
-let loggedInRef = { current: false };
 
 function log(msg) { console.log(`[tpa] ${new Date().toISOString()} ${msg}`); }
 
@@ -31,17 +30,37 @@ function loadPatterns() {
       throw new Error('TPA_PATTERNS_FILE outside working directory');
     }
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (!raw.requests || !raw.responses) throw new Error('missing keys');
-    patterns = {
-      requests: raw.requests.map(s => new RegExp(s)),
-      responses: {},
-    };
-    for (const key of Object.keys(raw.responses)) {
-      patterns.responses[key] = raw.responses[key].map(s => new RegExp(s));
+    if (!raw.requests || !raw.responses) throw new Error('missing keys: "requests" and "responses"');
+    
+    // Validate and compile regex patterns
+    const compiled = { requests: [], responses: {} };
+    
+    // Compile requests
+    for (const [i, pattern] of raw.requests.entries()) {
+      try {
+        compiled.requests.push(new RegExp(pattern));
+      } catch (e) {
+        throw new Error(`invalid regex in requests[${i}]: ${pattern} - ${e.message}`);
+      }
     }
+    
+    // Compile responses
+    for (const key of Object.keys(raw.responses)) {
+      compiled.responses[key] = [];
+      for (const [i, pattern] of raw.responses[key].entries()) {
+        try {
+          compiled.responses[key].push(new RegExp(pattern));
+        } catch (e) {
+          throw new Error(`invalid regex in responses.${key}[${i}]: ${pattern} - ${e.message}`);
+        }
+      }
+    }
+    
+    patterns = compiled;
     log(`loaded patterns from ${filePath}`);
   } catch (e) {
-    log(`pattern load failed, using defaults: ${e.message}`);
+    console.error(`[tpa] FATAL: Failed to load tpa-patterns.json: ${e.message}`);
+    console.error(`[tpa] Falling back to built-in default patterns.`);
     patterns = {
       requests: [
         /^(\w{3,16}) has requested to teleport to you$/,
@@ -141,8 +160,7 @@ function handleAcceptRequest(text) {
 
 function start(b, loggedIn) {
   if (running) return;
-  bot = b; running = true; isLoggedIn = loggedIn.current ?? false;
-  loggedInRef.current = isLoggedIn;
+  bot = b; running = true; isLoggedIn = loggedIn;
   retryCount = 0; acceptCountThisHour = 0; lastAcceptTime = 0;
   loadPatterns();
 
@@ -192,7 +210,6 @@ function start(b, loggedIn) {
 
 function setLoggedIn(value) {
   isLoggedIn = value;
-  loggedInRef.current = value;
 }
 
 function stop() {

@@ -1,9 +1,8 @@
 # Minecraft AFK Bot
 
-A lightweight Minecraft AFK bot built with Node.js and [mineflayer](https://github.com/Prinzhorn/mineflayer).
-It joins a server, logs in with `/login`, eats automatically, rotates its view, performs harmless anti-AFK
-actions **without ever moving**, optionally sends `/tpa` to a player, optionally auto-accepts `/tpa` from a
-whitelist, and reconnects by itself after disconnects.
+A lightweight Node.js bot that joins a Minecraft Java server, logs in with `/login`, eats automatically, rotates its POV, performs harmless anti-AFK actions **without ever moving**, optionally sends `/tpa`, auto-accepts teleports from a whitelist, and reconnects after disconnects.
+
+**Recommended GitHub topics:** `minecraft`, `mineflayer`, `afk-bot`, `nodejs`
 
 ## Features
 
@@ -18,14 +17,21 @@ whitelist, and reconnects by itself after disconnects.
 
 ## Setup
 
-1. Install **Node.js 18+**.
-2. Clone this repo and install dependencies:
+1. Install **Node.js 20+**.
+2. Clone this repo:
+
+   ```bash
+   git clone https://github.com/<your-username>/minecraft-afk-bot.git
+   cd minecraft-afk-bot
+   ```
+
+3. Install dependencies:
 
    ```bash
    npm install
    ```
 
-3. Copy the config template and fill in your real values:
+4. Copy the config template and fill in your real values:
 
    ```bash
    cp .env.example .env
@@ -111,7 +117,15 @@ pm2 save
 ### Run with Docker
 
 ```bash
-docker-compose up -d
+docker compose up -d
+```
+*(or `docker-compose up -d` for older Docker versions)*
+
+> **Note:** You must create `.env` before running with Docker.
+
+View logs with:
+```bash
+docker compose logs -f
 ```
 
 ## Important notes
@@ -128,11 +142,15 @@ docker-compose up -d
   (3) read the exact message in the console, (4) add that wording as a new regex in `tpa-patterns.json` keeping
   `(\w{3,16})` where the player name appears, (5) set `TPA_DEBUG_CHAT=false` and restart.
 
-  Example custom pattern for a non-English server:
+  Inside JSON files every backslash must be doubled. Example patterns:
 
   ```json
   "^(\w{3,16}) a demandé de vous téléporter"
   ```
+  ```json
+  "^(\w{3,16}) quiere teletransportarse a ti"
+  ```
+  *(These are only examples for non-English servers)*
 
 - **Server rules:** many servers ban AFK bots or have anti-bot rules, so check the rules first. The anti-AFK
   features never move the bot, so position-based AFK checks may still kick it.
@@ -145,7 +163,7 @@ docker-compose up -d
 | "Nothing happens after /tpa" | Player didn't type `/tpaccept`, or the request expired |
 | "Cooldown" | Essentials teleport cooldown; increase `TPA_RETRY_INTERVAL_SEC` |
 | "No permission" | Bot account needs `essentials.tpa` |
-| "Auto-accept doesn't work" | Check whitelist spelling, `TPA_DEBUG_CHAT` output, and pattern match |
+| "Auto-accept doesn't work" | Check whitelist spelling, `TPA_DEBUG_CHAT` output, pattern match |
 | "Bot gets kicked for AFK" | Server uses position-based AFK detection |
 
 ## License

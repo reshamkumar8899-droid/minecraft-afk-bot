@@ -1,5 +1,5 @@
 // src/bot.js
-// Bot creation, events, lifecycle, auto-eat plugin, and reconnect logic.
+// Bot creation, events, lifecycle, auto-eat plugin (v5), and reconnect logic.
 
 const mineflayer = require('mineflayer');
 const config = require('./config');
@@ -13,6 +13,7 @@ let reconnectAttempts = 0;
 let loginSent = false;
 let featuresStarted = false;
 let isLoggedIn = false;
+let reconnecting = false; // Single-flag to prevent duplicate reconnects
 
 function log(msg) { console.log(`[bot] ${new Date().toISOString()} ${msg}`); }
 
@@ -22,7 +23,7 @@ function createBot() {
     host: config.HOST,
     port: config.PORT,
     username: config.USERNAME,
-    version: config.VERSION || undefined,
+    version: config.VERSION,
     auth: config.AUTH,
   };
   bot = mineflayer.createBot(options);
@@ -34,19 +35,31 @@ function createBot() {
     loginSent = false;
     featuresStarted = false;
     isLoggedIn = false;
+    reconnecting = false;
 
-    // Load auto-eat plugin
+    // Load auto-eat plugin (v5 API)
     try {
       const autoEat = require('mineflayer-auto-eat');
-      bot.loadPlugin(autoEat);
+      bot.loadPlugin(autoEat.loader); // v5 uses .loader
       if (bot.autoEat) {
         bot.autoEat.setOpts({
-          priority: 'food',
-          minHunger: config.EAT_BELOW_FOOD,
+          priority: 'foodPoints', // v5: foodPoints instead of food
+          startAt: config.EAT_BELOW_FOOD, // v5: startAt instead of minHunger
           offhand: true,
-          bannedFood: ['rotten flesh', 'spider eye'],
+          bannedFood: ['rotten_flesh', 'spider_eye'], // v5: underscore names
         });
         bot.autoEat.enableAuto();
+        
+        // v5 events for logging
+        bot.autoEat.on('eatStart', (item) => {
+          log(`started eating: ${item.name}`);
+        });
+        bot.autoEat.on('eatFinish', () => {
+          log('finished eating');
+        });
+        bot.autoEat.on('eatFail', (reason) => {
+          log(`eat failed: ${reason}`);
+        });
       }
       log('auto-eat enabled');
     } catch (e) {
@@ -152,12 +165,14 @@ function createBot() {
   }
 
   function scheduleReconnect() {
-    if (reconnectTimer) return;
+    if (reconnecting) return; // Single-flag prevents duplicate reconnects
+    reconnecting = true;
     reconnectAttempts++;
     const delay = Math.min(60000, reconnectDelay * Math.pow(2, reconnectAttempts - 1));
     log(`reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
+      reconnecting = false;
       createBot();
     }, delay);
   }

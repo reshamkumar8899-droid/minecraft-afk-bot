@@ -60,6 +60,7 @@ const config = {
   TPA_MAX_RETRIES: parseInt(process.env.TPA_MAX_RETRIES, 3, 0),
 
   // --- TPA (auto-accept) ---
+  // TPA_ACCEPT_WHITELIST: comma-separated list of player names (e.g. "Steve,Alex")
   TPA_ACCEPT_ENABLED: parseBool(process.env.TPA_ACCEPT_ENABLED, false),
   TPA_ACCEPT_WHITELIST: (process.env.TPA_ACCEPT_WHITELIST || '')
     .split(',')
@@ -69,6 +70,9 @@ const config = {
   TPA_PATTERNS_FILE: process.env.TPA_PATTERNS_FILE || './tpa-patterns.json',
   TPA_DEBUG_CHAT: parseBool(process.env.TPA_DEBUG_CHAT, false),
 };
+
+// Convert empty VERSION to undefined for mineflayer.createBot
+if (config.VERSION === '') config.VERSION = undefined;
 
 // Validate required fields (including whitespace)
 const missing = [];
