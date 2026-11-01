@@ -1,0 +1,39 @@
+{
+  "requests": [
+    "^(\w{3,16}) has requested to teleport to you",
+    "^(\w{3,16}) has requested that you teleport to them",
+    "^(\w{3,16}) wants to teleport to you",
+    "^(\w{3,16}) wants you to teleport to them"
+  ],
+  "responses": {
+    "request_sent": [
+      "^(\w{3,16}) has requested to teleport to you",
+      "^(\w{3,16}) has requested that you teleport to them",
+      "^(\w{3,16}) wants to teleport to you",
+      "^(\w{3,16}) wants you to teleport to them"
+    ],
+    "player_not_found": [
+      "player not found",
+      "could not find the player",
+      "that player is not online",
+      "that player could not be found"
+    ],
+    "player_offline": [
+      "is offline",
+      "is not online",
+      "is currently offline"
+    ],
+    "cooldown": [
+      "cooldown",
+      "you have a teleport cooldown",
+      "please wait before sending another request",
+      "teleport is on cooldown"
+    ],
+    "teleporting": [
+      "teleporting",
+      "has accepted",
+      "has accepted your request",
+      "request accepted"
+    ]
+  }
+}
